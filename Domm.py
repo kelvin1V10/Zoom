@@ -9,9 +9,21 @@ WIDTH, HEIGHT = 800, 600
 HALF_HEIGHT = HEIGHT // 2
 FPS = 60
 
+# --- Configurações editáveis ---
+game_fps = FPS  # valor inicial do FPS
+graphics_quality = "Médio"
+
 # MENU INICIAL
 main_menu = True
 main_menu_selected = 0 
+
+# --- Menu Configurações ---
+settings_menu = False
+settings_selected = 0
+fps_options = [30, 60, 120, 240]
+gfx_options = ["Baixo", "Médio", "Alto"]
+current_fps_index = 1  # começa em 60
+current_gfx_index = 1  # começa em Médio
 
 def draw_main_menu(sc, selected_option):
     background = pygame.image.load("pagina.png").convert()
@@ -25,6 +37,26 @@ def draw_main_menu(sc, selected_option):
     sc.blit(title, (WIDTH // 2 - title.get_width() // 2, 80))
 
     options = ["Jogar", "Configurações", "Sair"]
+    for i, option in enumerate(options):
+        color = (255, 255, 255) if i == selected_option else (170, 170, 170)
+        text = option_font.render(option, True, color)
+        sc.blit(text, (WIDTH // 2 - text.get_width() // 2, 200 + i * 60))
+
+
+def draw_settings_menu(sc, selected_option, fps_opts, gfx_opts, fps_idx, gfx_idx):
+    sc.fill((0, 0, 0))
+    title_font = pygame.font.SysFont(None, 72)
+    option_font = pygame.font.SysFont(None, 48)
+    
+    title = title_font.render("Configurações", True, (255, 255, 255))
+    sc.blit(title, (WIDTH // 2 - title.get_width() // 2, 80))
+    
+    options = [
+        f"FPS: {fps_opts[fps_idx]}",
+        f"Qualidade Gráfica: {gfx_opts[gfx_idx]}",
+        "Voltar"
+    ]
+    
     for i, option in enumerate(options):
         color = (255, 255, 255) if i == selected_option else (170, 170, 170)
         text = option_font.render(option, True, color)
@@ -200,6 +232,14 @@ def ray_casting(sc, px, py, pa):
                 pygame.draw.rect(sc, color, (ray * SCALE, HALF_HEIGHT - proj_height // 2, SCALE, proj_height))
                 break
 
+def get_enemy_scale_factor():
+    if gfx_options[current_gfx_index] == "Baixo":
+        return 0.5
+    elif gfx_options[current_gfx_index] == "Médio":
+        return 1
+    elif gfx_options[current_gfx_index] == "Alto":
+        return 1.5
+
 def draw_weapon(sc):
     global weapon_recoil
     x = WIDTH // 2 - 60
@@ -266,6 +306,7 @@ def move_enemies():
                     enemy['y'] = new_y
 
 def draw_enemies(sc, px, py, pa):
+    scale_factor = get_enemy_scale_factor()
     for enemy in enemies:
         if enemy['alive'] and is_visible(px, py, enemy['x'], enemy['y']):
             dx, dy = enemy['x'] - px, enemy['y'] - py
@@ -274,7 +315,8 @@ def draw_enemies(sc, px, py, pa):
             angle = (angle + math.pi) % (2 * math.pi) - math.pi
             if -FOV / 2 < angle < FOV / 2 and distance > 0.5:
                 proj_height = PROJ_COEFF / distance
-                sprite = pygame.transform.scale(enemy['sprite'], (int(proj_height), int(proj_height)))
+                proj_height = int(proj_height * scale_factor)
+                sprite = pygame.transform.scale(enemy['sprite'], (proj_height, proj_height))
                 screen_x = WIDTH // 2 + (angle) * (WIDTH / FOV) - proj_height // 2
                 screen_y = HALF_HEIGHT - proj_height // 2
                 sc.blit(sprite, (int(screen_x), int(screen_y)))
@@ -365,205 +407,197 @@ while running:
                 running = False
 
             elif event.type == pygame.KEYDOWN:
-                if event.key == pygame.K_UP:
-                    main_menu_selected = (main_menu_selected - 1) % 3
-                elif event.key == pygame.K_DOWN:
-                    main_menu_selected = (main_menu_selected + 1) % 3
-                elif event.key == pygame.K_RETURN:
-                    if main_menu_selected == 0:
-                        main_menu = False
-                        paused = False
-                        pygame.mouse.set_visible(False)
-                        pygame.event.set_grab(True)
-                    elif main_menu_selected == 1:
-                        print("Configurações ainda não implementadas.")
-                    elif main_menu_selected == 2:
-                        running = False
+                if not settings_menu:
+                    if event.key == pygame.K_UP:
+                        main_menu_selected = (main_menu_selected - 1) % 3
+                    elif event.key == pygame.K_DOWN:
+                        main_menu_selected = (main_menu_selected + 1) % 3
+                    elif event.key == pygame.K_RETURN:
+                        if main_menu_selected == 0:
+                            main_menu = False
+                            paused = False
+                            pygame.mouse.set_visible(False)
+                            pygame.event.set_grab(True)
+                        elif main_menu_selected == 1:
+                            # Entrar no menu configurações
+                            settings_menu = True
+                            settings_selected = 0
+                        elif main_menu_selected == 2:
+                            running = False
+                else:
+                    # Controle do menu configurações
+                    if event.key == pygame.K_UP:
+                        settings_selected = (settings_selected - 1) % 3
+                    elif event.key == pygame.K_DOWN:
+                        settings_selected = (settings_selected + 1) % 3
+                    elif event.key == pygame.K_LEFT:
+                        if settings_selected == 0:
+                            current_fps_index = (current_fps_index - 1) % len(fps_options)
+                        elif settings_selected == 1:
+                            current_gfx_index = (current_gfx_index - 1) % len(gfx_options)
+                    elif event.key == pygame.K_RIGHT:
+                        if settings_selected == 0:
+                            current_fps_index = (current_fps_index + 1) % len(fps_options)
+                        elif settings_selected == 1:
+                            current_gfx_index = (current_gfx_index + 1) % len(gfx_options)
+                    elif event.key == pygame.K_RETURN:
+                        if settings_selected == 2:
+                            settings_menu = False
 
-        draw_main_menu(screen, main_menu_selected)
+
+        if not settings_menu:
+            draw_main_menu(screen, main_menu_selected)
+        else:
+            draw_settings_menu(screen, settings_selected, fps_options, gfx_options, current_fps_index, current_gfx_index)
+
         pygame.display.flip()
         clock.tick(FPS)
 
     else:
-        # Loop do jogo principal (com pausa)
-        dt = clock.tick(FPS)
-        
+        # Loop do jogo
+
+        FPS = fps_options[current_fps_index]  # Aplica FPS escolhido
+
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 running = False
 
-            elif event.type == pygame.KEYDOWN:
-                if not paused:
-                    if event.key == pygame.K_ESCAPE:
-                        paused = True
-                        pygame.mouse.set_visible(True)
-                        pygame.event.set_grab(False)
-
-                    elif event.key == pygame.K_1:
-                        current_weapon = "pistol"
-
-                    elif event.key == pygame.K_2 and rifle_collected:
-                        current_weapon = "rifle"
-
-                    elif event.key == pygame.K_3 and shotgun_collected:
-                        current_weapon = "shotgun"
-
-                    elif event.key == pygame.K_r and not reloading:
-                        if AMMO[current_weapon]["current"] < WEAPONS[current_weapon]["mag_size"] and AMMO[current_weapon]["reserve"] > 0:
-                            reloading = True
-                            reload_start_time = pygame.time.get_ticks()
-
-                else:
-                    # Menu pausa
-                    if event.key == pygame.K_ESCAPE:
-                        paused = False
-                        pygame.mouse.set_visible(False)
-                        pygame.event.set_grab(True)
-                    elif event.key == pygame.K_UP:
+            if event.type == pygame.KEYDOWN:
+                if paused:
+                    if event.key == pygame.K_UP:
                         pause_selected = (pause_selected - 1) % 3
                     elif event.key == pygame.K_DOWN:
                         pause_selected = (pause_selected + 1) % 3
                     elif event.key == pygame.K_RETURN:
-                        if pause_selected == 0:  # Continuar
+                        if pause_selected == 0:
                             paused = False
                             pygame.mouse.set_visible(False)
                             pygame.event.set_grab(True)
-                        elif pause_selected == 1:  # Voltar ao menu inicial
-                            paused = False
+                        elif pause_selected == 1:
                             main_menu = True
                             pygame.mouse.set_visible(True)
                             pygame.event.set_grab(False)
-                        elif pause_selected == 2:  # Sair do jogo
+                        elif pause_selected == 2:
                             running = False
+                else:
+                    if event.key == pygame.K_ESCAPE:
+                        paused = True
+                        pygame.mouse.set_visible(True)
+                        pygame.event.set_grab(False)
+                    elif event.key == pygame.K_r:
+                        if not reloading:
+                            reloading = True
+                            reload_start_time = pygame.time.get_ticks()
+                    elif event.key == pygame.K_1:
+                        current_weapon = "pistol"
+                    elif event.key == pygame.K_2:
+                        if rifle_collected:
+                            current_weapon = "rifle"
+                    elif event.key == pygame.K_3:
+                        if shotgun_collected:
+                            current_weapon = "shotgun"
+                    elif event.key == pygame.K_e:
+                        # Coletar armas
+                        dx_rifle = rifle_pos[0] - player_x
+                        dy_rifle = rifle_pos[1] - player_y
+                        dist_rifle = math.hypot(dx_rifle, dy_rifle)
+                        if dist_rifle < 50 and not rifle_collected:
+                            rifle_collected = True
 
-        if not paused and not main_menu:
-            # seu código normal do jogo continua aqui exatamente igual
-            is_mouse1_down = pygame.mouse.get_pressed(3)[0]
-            now = (time() * 1000)
+                        dx_shotgun = shotgun_pos[0] - player_x
+                        dy_shotgun = shotgun_pos[1] - player_y
+                        dist_shotgun = math.hypot(dx_shotgun, dy_shotgun)
+                        if dist_shotgun < 50 and not shotgun_collected:
+                            shotgun_collected = True
 
-            if is_mouse1_down and not reloading and now - player_last_shoot_timestamp >= 100:
-                player_last_shoot_timestamp = now
+                    elif event.key == pygame.K_SPACE:
+                        now = pygame.time.get_ticks()
+                        weapon = WEAPONS[current_weapon]
+                        if now - player_last_shoot_timestamp >= weapon["shoot_cooldown"] and not reloading:
+                            shot_pos, enemy_hit = shoot(player_x, player_y, player_angle)
+                            if enemy_hit:
+                                enemy, dmg = enemy_hit
+                                enemy['health'] -= dmg
+                                if enemy['health'] <= 0:
+                                    enemy['alive'] = False
+                                    score += 1
+                            player_last_shoot_timestamp = now
+                            weapon_recoil = 15
 
-                impact_pos, hit_data = shoot(player_x, player_y, player_angle)
-                if impact_pos:
-                    shot_effect_time = pygame.time.get_ticks()
-                    shot_effect_pos = impact_pos
-                    weapon_recoil = 15
-                if hit_data:
-                    hit_enemy, damage = hit_data
-                    hit_enemy['health'] -= damage
-                    if hit_enemy['health'] <= 0:
-                        hit_enemy['alive'] = False
-                        score += 10
+            if event.type == pygame.MOUSEMOTION and not paused:
+                mx, my = event.rel
+                player_angle += mx * mouse_sensitivity
 
+        if not paused:
+            keys = pygame.key.get_pressed()
+            dx = math.cos(player_angle) * player_speed
+            dy = math.sin(player_angle) * player_speed
+
+            if keys[pygame.K_w]:
+                if not is_wall(player_x + dx, player_y):
+                    player_x += dx
+                if not is_wall(player_x, player_y + dy):
+                    player_y += dy
+            if keys[pygame.K_s]:
+                if not is_wall(player_x - dx, player_y):
+                    player_x -= dx
+                if not is_wall(player_x, player_y - dy):
+                    player_y -= dy
+            if keys[pygame.K_a]:
+                if not is_wall(player_x + dy, player_y):
+                    player_x += dy
+                if not is_wall(player_x, player_y - dx):
+                    player_y -= dx
+            if keys[pygame.K_d]:
+                if not is_wall(player_x - dy, player_y):
+                    player_x -= dy
+                if not is_wall(player_x, player_y + dx):
+                    player_y += dx
+
+            # Recarregar arma
             if reloading:
                 now = pygame.time.get_ticks()
                 if now - reload_start_time >= RELOAD_TIME:
                     reloading = False
-                    needed = WEAPONS[current_weapon]["mag_size"] - AMMO[current_weapon]["current"]
-                    available = AMMO[current_weapon]["reserve"]
-                    to_load = min(needed, available)
-                    AMMO[current_weapon]["current"] += to_load
-                    AMMO[current_weapon]["reserve"] -= to_load
+                    ammo_needed = WEAPONS[current_weapon]["mag_size"] - AMMO[current_weapon]["current"]
+                    ammo_available = AMMO[current_weapon]["reserve"]
+                    ammo_to_load = min(ammo_needed, ammo_available)
+                    AMMO[current_weapon]["current"] += ammo_to_load
+                    AMMO[current_weapon]["reserve"] -= ammo_to_load
 
-            mx, my = pygame.mouse.get_rel()
-            player_angle += mx * mouse_sensitivity
-            player_angle %= 2 * math.pi
-
-            keys = pygame.key.get_pressed()
-            dx = dy = 0
-            if keys[pygame.K_w]:
-                dx += player_speed * math.cos(player_angle)
-                dy += player_speed * math.sin(player_angle)
-            if keys[pygame.K_s]:
-                dx -= player_speed * math.cos(player_angle)
-                dy -= player_speed * math.sin(player_angle)
-            if keys[pygame.K_a]:
-                dx += player_speed * math.cos(player_angle - math.pi/2)
-                dy += player_speed * math.sin(player_angle - math.pi/2)
-            if keys[pygame.K_d]:
-                dx += player_speed * math.cos(player_angle + math.pi/2)
-                dy += player_speed * math.sin(player_angle + math.pi/2)
-
-            if not is_wall(player_x + dx, player_y):
-                player_x += dx
-            if not is_wall(player_x, player_y + dy):
-                player_y += dy
-
-            screen.fill(BLACK)
-            ray_casting(screen, player_x, player_y, player_angle)
-            draw_enemies(screen, player_x, player_y, player_angle)
-
-            current_time = pygame.time.get_ticks()
-            for i, enemy in enumerate(enemies):
-                if enemy['alive'] and math.hypot(enemy['x'] - player_x, enemy['y'] - player_y) <= ENEMY_ATTACK_RANGE:
-                    if current_time - last_attack_times.get(i, 0) >= ENEMY_ATTACK_COOLDOWN:
-                        player_health -= ENEMY_DAMAGE
-                        last_attack_times[i] = current_time
-
-            if shot_effect_pos and pygame.time.get_ticks() - shot_effect_time < 200:
-                pygame.draw.circle(screen, RED, (WIDTH // 2, HALF_HEIGHT), 10)
-            else:
-                shot_effect_pos = None
-
-            if current_time - last_spawn_time > SPAWN_INTERVAL and sum(e['alive'] for e in enemies) < 2:
+            # Spawn inimigos
+            now = pygame.time.get_ticks()
+            if now - last_spawn_time > SPAWN_INTERVAL:
                 spawn_mob()
-                last_spawn_time = current_time
-
-            if weapon_recoil > 0:
-                weapon_recoil -= weapon_recoil_speed
-                if weapon_recoil < 0:
-                    weapon_recoil = 0
-
-            if player_health <= 0:
-                print("Você morreu!")
-                running = False
+                last_spawn_time = now
 
             move_enemies()
-            draw_hand(screen)
-            draw_weapon(screen)
 
-            if not rifle_collected:
-                draw_collectable_weapon(screen, player_x, player_y, player_angle, rifle_pos, rifle_sprite)
-                dist = math.hypot(rifle_pos[0] - player_x, rifle_pos[1] - player_y)
-                if dist < 40:
-                    rifle_collected = True
-                    current_weapon = "rifle"
-                    print("Rifle coletado!")
+        screen.fill(BLACK)
+        ray_casting(screen, player_x, player_y, player_angle)
+        draw_enemies(screen, player_x, player_y, player_angle)
 
-            if not shotgun_collected:
-                draw_collectable_weapon(screen, player_x, player_y, player_angle, shotgun_pos, shotgun_sprite)
-                dist = math.hypot(shotgun_pos[0] - player_x, shotgun_pos[1] - player_y)
-                if dist < 40:
-                    shotgun_collected = True
-                    current_weapon = "shotgun"
-                    print("Shotgun coletada!")
+        # Desenha armas no mapa (coletáveis)
+        if not rifle_collected:
+            draw_collectable_weapon(screen, player_x, player_y, player_angle, rifle_pos, rifle_sprite)
+        if not shotgun_collected:
+            draw_collectable_weapon(screen, player_x, player_y, player_angle, shotgun_pos, shotgun_sprite)
 
-            pygame.draw.line(screen, WHITE, (WIDTH//2 - 10, HALF_HEIGHT), (WIDTH//2 + 10, HALF_HEIGHT), 2)
-            pygame.draw.line(screen, WHITE, (WIDTH//2, HALF_HEIGHT - 10), (WIDTH//2, HALF_HEIGHT + 10), 2)
+        draw_weapon(screen)
+        draw_hand(screen)
 
-            health_bar_width = 200
-            health_bar_height = 25
-            health_ratio = player_health / player_max_health
-            pygame.draw.rect(screen, RED, (20, 20, health_bar_width, health_bar_height))
-            pygame.draw.rect(screen, GREEN, (20, 20, int(health_bar_width * health_ratio), health_bar_height))
-            health_text = font.render(f"Vida: {player_health} / {player_max_health}", True, WHITE)
-            screen.blit(health_text, (20, 50))
+        # Interface HUD
+        ammo_text = font.render(f"Munição: {AMMO[current_weapon]['current']} / {AMMO[current_weapon]['reserve']}", True, WHITE)
+        screen.blit(ammo_text, (10, 10))
 
-            weapon_props = AMMO[current_weapon]
-            ammo_text = font.render(f"{current_weapon.capitalize()} Ammo: {weapon_props['current']} / {WEAPONS[current_weapon]['mag_size']}  ({weapon_props['reserve']})", True, WHITE)
-            screen.blit(ammo_text, (20, 80))
-            if reloading:
-                reload_text = font.render("Recarregando...", True, RED)
-                screen.blit(reload_text, (20, 110))
+        health_text = font.render(f"Vida: {player_health} / {player_max_health}", True, WHITE)
+        screen.blit(health_text, (10, 40))
 
-            score_text = font.render(f"Score: {score}", True, WHITE)
-            screen.blit(score_text, (WIDTH - 150, 20))
+        score_text = font.render(f"Pontos: {score}", True, WHITE)
+        screen.blit(score_text, (WIDTH - 150, 10))
 
-        else:
-            # Desenha o menu de pausa
+        if paused:
             draw_pause_menu(screen, pause_selected)
 
         pygame.display.flip()
-
-pygame.quit()
+        clock.tick(FPS)
